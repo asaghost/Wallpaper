@@ -1,26 +1,25 @@
 name: Daily Wallpaper Bot
 on:
   schedule:
-    - cron: '0 * * * *' # ينشر كل ساعة تلقائياً
-  workflow_dispatch: # يسمح لك بالتشغيل اليدوي أيضاً
+    - cron: '0 * * * *'
+  workflow_dispatch:
 
 jobs:
   post:
     runs-on: ubuntu-latest
     steps:
-      - name: Generate and Post
+      - name: Process
         run: |
-          curl -X POST "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key=AIzaSyBaUh3GG_JXDQyRW8MQo3goMbpZyjWb9SY" \
+          curl -s -X POST "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key=AIzaSyBaUh3GG_JXDQyRW8MQo3goMbpZyjWb9SY" \
           -H "Content-Type: application/json" \
-          -d '{
-            "contents": [{"parts": [{"text": "Professional 4k wallpaper, Galaxy and Planets, aesthetic"}]}],
-            "generation_config": {"image_config": {"aspect_ratio": "9:16"}}
-          }' > res.json
+          -d '{"contents": [{"parts": [{"text": "Professional 8k wallpaper, Galaxy and Planets, highly detailed"}]}], "generation_config": {"image_config": {"aspect_ratio": "9:16"}}}' > res.json
           
-          IMG_DATA=$(cat res.json | jq -r '.candidates[0].content.parts[0].inlineData.data')
-          echo $IMG_DATA | base64 -d > photo.png
+          IMG=$(cat res.json | jq -r '.candidates[0].content.parts[] | select(.inlineData != null) | .inlineData.data')
           
-          curl -X POST "https://api.telegram.org/bot8475807409:AAHNj5nCT4BnwOrMSHoviStSUDgRwn_QO4g/sendPhoto" \
-          -F "chat_id=@MobWallpaper4k" \
-          -F "photo=@photo.png" \
-          -F "caption=🎨 خلفية جديدة من نظام GitHub الآلي"
+          if [ -z "$IMG" ] || [ "$IMG" == "null" ]; then
+            echo "Error generating image"; exit 1
+          fi
+          
+          echo $IMG | base64 -d > p.png
+          
+          curl -s -X POST "https://api.telegram.org/bot8475807409:AAHNj5nCT4BnwOrMSHoviStSUDgRwn_QO4g/sendPhoto" -F "chat_id=@MobWallpaper4k" -F "photo=@p.png" -F "caption=🎨 خلفية جديدة: Galaxy and Planets"
