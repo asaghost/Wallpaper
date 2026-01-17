@@ -13,7 +13,7 @@ jobs:
           echo "🤖 بدء النظام الذكي لتوليد الخلفيات..."
           
           # 1. طلب توليد الصورة مع إعدادات أمان منخفضة لتجنب الحجب التلقائي
-          RESPONSE=$(curl -s -X POST "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key=AIzaSyBaUh3GG_JXDQyRW8MQo3goMbpZyjWb9SY" \
+          RESPONSE=$(curl -s -X POST "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key=AIzaSyB6IW8-n9k0dxOrz9zDX59ep_SksHz5xWY" \
           -H "Content-Type: application/json" \
           -d '{
             "contents": [{"parts": [{"text": "High resolution 8k wallpaper, Galaxy and Planets, cinematic, highly detailed, mobile wallpaper style"}]}],
