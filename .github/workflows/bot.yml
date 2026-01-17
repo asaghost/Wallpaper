@@ -8,18 +8,27 @@ jobs:
   post:
     runs-on: ubuntu-latest
     steps:
-      - name: Process
+      - name: Generate and Post
         run: |
+          # 1. طلب توليد الصورة
           curl -s -X POST "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key=AIzaSyBaUh3GG_JXDQyRW8MQo3goMbpZyjWb9SY" \
           -H "Content-Type: application/json" \
-          -d '{"contents": [{"parts": [{"text": "Professional 8k wallpaper, Galaxy and Planets, highly detailed"}]}], "generation_config": {"image_config": {"aspect_ratio": "9:16"}}}' > res.json
+          -d '{"contents": [{"parts": [{"text": "Professional 8k wallpaper, Galaxy and Planets, cinematic lighting, masterpiece"}]}], "generation_config": {"image_config": {"aspect_ratio": "9:16"}}}' > res.json
           
-          IMG=$(cat res.json | jq -r '.candidates[0].content.parts[] | select(.inlineData != null) | .inlineData.data')
+          # 2. استخراج بيانات الصورة (طريقة ذكية تبحث في كل الأجزاء)
+          IMG_DATA=$(cat res.json | jq -r '.candidates[0].content.parts[] | select(.inlineData != null) | .inlineData.data')
           
-          if [ -z "$IMG" ] || [ "$IMG" == "null" ]; then
-            echo "Error generating image"; exit 1
+          if [ -z "$IMG_DATA" ] || [ "$IMG_DATA" == "null" ]; then
+            echo "❌ خطأ: لم يتم العثور على بيانات الصورة في رد الـ API"
+            cat res.json
+            exit 1
           fi
           
-          echo $IMG | base64 -d > p.png
+          # 3. تحويل البيانات لصورة
+          echo $IMG_DATA | base64 -d > wallpaper.png
           
-          curl -s -X POST "https://api.telegram.org/bot8475807409:AAHNj5nCT4BnwOrMSHoviStSUDgRwn_QO4g/sendPhoto" -F "chat_id=@MobWallpaper4k" -F "photo=@p.png" -F "caption=🎨 خلفية جديدة: Galaxy and Planets"
+          # 4. الإرسال لتلغرام
+          curl -s -X POST "https://api.telegram.org/bot8475807409:AAHNj5nCT4BnwOrMSHoviStSUDgRwn_QO4g/sendPhoto" \
+          -F "chat_id=@MobWallpaper4k" \
+          -F "photo=@wallpaper.png" \
+          -F "caption=🎨 خلفية جديدة تم توليدها آلياً\n📌 الموضوع: Galaxy and Planets"
