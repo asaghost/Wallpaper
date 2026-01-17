@@ -10,25 +10,48 @@ jobs:
     steps:
       - name: Generate and Post
         run: |
-          # 1. طلب توليد الصورة
-          curl -s -X POST "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key=AIzaSyBaUh3GG_JXDQyRW8MQo3goMbpZyjWb9SY" \
+          echo "🚀 بدء عملية توليد الصورة..."
+          
+          # 1. إرسال الطلب وحفظ الرد مع كود الحالة
+          RESPONSE=$(curl -s -w "
+%{http_code}" -X POST "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key=AIzaSyBaUh3GG_JXDQyRW8MQo3goMbpZyjWb9SY" \
           -H "Content-Type: application/json" \
-          -d '{"contents": [{"parts": [{"text": "Professional 8k wallpaper, Galaxy and Planets, cinematic lighting, masterpiece"}]}], "generation_config": {"image_config": {"aspect_ratio": "9:16"}}}' > res.json
+          -d '{"contents": [{"parts": [{"text": "Professional 8k mobile wallpaper, Galaxy and Planets, cinematic lighting, masterpiece, high resolution"}]}], "generation_config": {"image_config": {"aspect_ratio": "9:16"}}}')
           
-          # 2. استخراج بيانات الصورة (طريقة ذكية تبحث في كل الأجزاء)
-          IMG_DATA=$(cat res.json | jq -r '.candidates[0].content.parts[] | select(.inlineData != null) | .inlineData.data')
+          HTTP_STATUS=$(echo "$RESPONSE" | tail -n 1)
+          BODY=$(echo "$RESPONSE" | sed '$d')
           
-          if [ -z "$IMG_DATA" ] || [ "$IMG_DATA" == "null" ]; then
-            echo "❌ خطأ: لم يتم العثور على بيانات الصورة في رد الـ API"
-            cat res.json
+          echo "Status Code: $HTTP_STATUS"
+          
+          if [ "$HTTP_STATUS" -ne 200 ]; then
+            echo "❌ خطأ من جوجل API:"
+            echo "$BODY" | jq '.'
+            exit 1
+          fi
+
+          # 2. استخراج بيانات الصورة
+          IMG_DATA=$(echo "$BODY" | jq -r '.candidates[0].content.parts[] | select(.inlineData != null) | .inlineData.data // empty')
+          
+          if [ -z "$IMG_DATA" ]; then
+            echo "❌ فشل: الرد سليم ولكن لا يحتوي على صورة. الرد الكامل:"
+            echo "$BODY" | jq '.'
             exit 1
           fi
           
-          # 3. تحويل البيانات لصورة
-          echo $IMG_DATA | base64 -d > wallpaper.png
+          # 3. تحويل وتخزين الصورة
+          echo "$IMG_DATA" | base64 -d > wallpaper.png
+          echo "✅ تم توليد الصورة بنجاح."
           
           # 4. الإرسال لتلغرام
-          curl -s -X POST "https://api.telegram.org/bot8475807409:AAHNj5nCT4BnwOrMSHoviStSUDgRwn_QO4g/sendPhoto" \
+          SEND_RES=$(curl -s -X POST "https://api.telegram.org/bot8475807409:AAHNj5nCT4BnwOrMSHoviStSUDgRwn_QO4g/sendPhoto" \
           -F "chat_id=@MobWallpaper4k" \
           -F "photo=@wallpaper.png" \
-          -F "caption=🎨 خلفية جديدة تم توليدها آلياً\n📌 الموضوع: Galaxy and Planets"
+          -F "caption=🎨 خلفية جديدة تم توليدها\n📌 الموضوع: Galaxy and Planets")
+          
+          if echo "$SEND_RES" | grep -q '"ok":true'; then
+            echo "✅ تم الإرسال لتلغرام بنجاح."
+          else
+            echo "❌ فشل الإرسال لتلغرام:"
+            echo "$SEND_RES" | jq '.'
+            exit 1
+          fi
