@@ -1,75 +1,1 @@
-name: Daily Wallpaper Bot
-on:
-  schedule:
-    - cron: '0 * * * *'
-  workflow_dispatch:
 
-jobs:
-  post:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Generate and Post
-        run: |
-          echo "🤖 بدء النظام الذكي لتوليد الخلفيات..."
-          
-          # 1. طلب توليد الصورة مع إعدادات أمان منخفضة لتجنب الحجب التلقائي
-          RESPONSE=$(curl -s -X POST "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key=AIzaSyB6IW8-n9k0dxOrz9zDX59ep_SksHz5xWY" \
-          -H "Content-Type: application/json" \
-          -d '{
-            "contents": [{"parts": [{"text": "High resolution 8k wallpaper, Galaxy and Planets, cinematic, highly detailed, mobile wallpaper style"}]}],
-            "generation_config": {
-              "image_config": { "aspect_ratio": "9:16" }
-            },
-            "safetySettings": [
-              {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
-              {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
-              {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE"},
-              {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"}
-            ]
-          }')
-
-          # 2. فحص الأخطاء قبل البدء (تحليل ذكي للرد)
-          
-          # هل هناك خطأ في المفتاح أو الحساب؟
-          API_ERROR=$(echo "$RESPONSE" | jq -r '.error.message // empty')
-          if [ ! -z "$API_ERROR" ]; then
-            echo "❌ خطأ تقني من جوجل: $API_ERROR"
-            exit 1
-          fi
-
-          # هل تم حجب المحتوى بسبب سياسات جوجل؟
-          SAFETY_BLOCK=$(echo "$RESPONSE" | jq -r '.promptFeedback.blockReason // empty')
-          if [ ! -z "$SAFETY_BLOCK" ]; then
-            echo "⚠️ تم حجب الطلب من جوجل لسبب متعلق بالأمان: $SAFETY_BLOCK"
-            echo "نصيحة: حاول تغيير 'موضوع الصور' في الإعدادات."
-            exit 1
-          fi
-
-          # 3. محاولة استخراج الصورة
-          IMG_DATA=$(echo "$RESPONSE" | jq -r '.candidates[0].content.parts[] | select(.inlineData != null) | .inlineData.data // empty')
-          
-          if [ -z "$IMG_DATA" ]; then
-            echo "❌ فشل استخراج الصورة. الرد الوارد من جوجل لا يحتوي على بيانات صورة."
-            echo "الرد الكامل للمعاينة:"
-            echo "$RESPONSE" | jq '.'
-            exit 1
-          fi
-
-          # 4. تحويل الصورة وحفظها
-          echo "$IMG_DATA" | base64 -d > wallpaper.png
-          echo "✅ تم توليد ملف الصورة بنجاح."
-
-          # 5. الإرسال لتلغرام مع فحص التوكن والمعرف
-          SEND_RES=$(curl -s -X POST "https://api.telegram.org/bot8475807409:AAHNj5nCT4BnwOrMSHoviStSUDgRwn_QO4g/sendPhoto" \
-          -F "chat_id=@MobWallpaper4k" \
-          -F "photo=@wallpaper.png" \
-          -F "caption=🚀 تم توليد ونشر خلفية 8K جديدة!\n🎨 الموضوع: Galaxy and Planets")
-
-          if echo "$SEND_RES" | grep -q '"ok":true'; then
-            echo "✅ تم النشر في القناة بنجاح!"
-          else
-            echo "❌ فشل الإرسال لتلغرام. تحقق من التوكن أو تأكد أن البوت مسؤول في القناة."
-            echo "رد تلغرام:"
-            echo "$SEND_RES" | jq '.'
-            exit 1
-          fi
